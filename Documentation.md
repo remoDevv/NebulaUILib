@@ -9,20 +9,13 @@ A comprehensive, mobile-friendly UI library for Roblox
 - Configuration saving system
 - Smooth animations and transitions
 - Easy-to-use API
+- Modern Replit Agent theme
 
 ## Getting Started
 
 ### Installation
 
 To install Nebula Lib in your Roblox project, simply load the library using the provided loadstring:
-
-```lua
-local NebulaLib = loadstring(game:HttpGet(('https://path.to/nebula/source')))()
-```
-
-### Booting the Library
-
-After installing, you can initialize the library with a basic configuration:
 
 ```lua
 local NebulaLib = loadstring(game:HttpGet(('https://path.to/nebula/source')))()
@@ -128,6 +121,52 @@ Callback = <function> - Executes when slider value changes.
 ]]
 ```
 
+#### ColorPicker
+
+Add a color selection interface with RGB sliders:
+
+```lua
+Tab:AddColorPicker({
+    Name = "Select Color",
+    Default = Color3.fromRGB(255, 255, 255),
+    Callback = function(Color)
+        print("Color selected:", Color)
+    end
+})
+
+--[[
+Name = <string> - ColorPicker label.
+Default = <Color3> - Initial color value.
+Callback = <function> - Executes when color changes.
+]]
+```
+
+#### TextInput
+
+Add text input fields with validation support:
+
+```lua
+Tab:AddTextInput({
+    Name = "Username",
+    Default = "",
+    Placeholder = "Enter username...",
+    ValidationFunc = function(Text)
+        return #Text >= 3 -- Returns true if text length is 3 or more
+    end,
+    Callback = function(Text)
+        print("Text changed to:", Text)
+    end
+})
+
+--[[
+Name = <string> - TextInput label.
+Default = <string> - Initial text value.
+Placeholder = <string> - Placeholder text when empty.
+ValidationFunc = <function> - Optional validation function.
+Callback = <function> - Executes when text changes.
+]]
+```
+
 #### Notifications
 
 Display temporary notifications:
@@ -166,6 +205,20 @@ Callback = <function> - Executes on selection.
 ]]
 ```
 
+### Theme Customization
+
+The library uses the Replit Agent theme by default:
+
+```lua
+NebulaLib.Theme = {
+    Background = Color3.fromRGB(13, 17, 23),
+    Secondary = Color3.fromRGB(22, 27, 34),
+    Accent = Color3.fromRGB(88, 166, 255),
+    Text = Color3.fromRGB(230, 237, 243),
+    SubText = Color3.fromRGB(125, 133, 144)
+}
+```
+
 ### Finalizing and Destroying
 
 To initialize the interface:
@@ -186,5 +239,8 @@ NebulaLib:Destroy()
 - All UI elements support both mouse and touch interactions
 - Configuration saving is optional and can be enabled per window
 - The interface can be dragged on both desktop and mobile devices
+- Modern Replit Agent theme with consistent styling
+- Support for RGB color selection
+- Text input validation capabilities
 
 For more examples and advanced usage, please refer to the examples folder in the repository.

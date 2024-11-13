@@ -11,11 +11,11 @@ local RunService = game:GetService("RunService")
 local NebulaLib = {
     Windows = {},
     Theme = {
-        Background = Color3.fromRGB(25, 25, 25),
-        Accent = Color3.fromRGB(0, 120, 255),
-        Text = Color3.fromRGB(255, 255, 255),
-        DarkContrast = Color3.fromRGB(15, 15, 15),
-        LightContrast = Color3.fromRGB(35, 35, 35),
+        Background = Color3.fromRGB(13, 17, 23),
+        Secondary = Color3.fromRGB(22, 27, 34),
+        Accent = Color3.fromRGB(88, 166, 255),
+        Text = Color3.fromRGB(230, 237, 243),
+        SubText = Color3.fromRGB(125, 133, 144)
     },
     Flags = {},
     ConfigFolder = "NebulaSettings"
@@ -78,7 +78,7 @@ function NebulaLib:CreateWindow(config)
     Window.TitleBar = CreateInstance("Frame", {
         Name = "TitleBar",
         Parent = Window.MainFrame,
-        BackgroundColor3 = self.Theme.DarkContrast,
+        BackgroundColor3 = self.Theme.Secondary,
         Size = UDim2.new(1, 0, 0, 30)
     })
 
@@ -100,7 +100,7 @@ function NebulaLib:CreateWindow(config)
     Window.TabContainer = CreateInstance("Frame", {
         Name = "TabContainer",
         Parent = Window.MainFrame,
-        BackgroundColor3 = self.Theme.LightContrast,
+        BackgroundColor3 = self.Theme.Secondary,
         Position = UDim2.new(0, 0, 0, 30),
         Size = UDim2.new(0, 120, 1, -30)
     })
@@ -199,7 +199,7 @@ function NebulaLib:CreateWindow(config)
             config = config or {}
             local Button = CreateInstance("TextButton", {
                 Parent = Tab.Content,
-                BackgroundColor3 = NebulaLib.Theme.LightContrast,
+                BackgroundColor3 = NebulaLib.Theme.Secondary,
                 Size = UDim2.new(1, -10, 0, 30),
                 Position = UDim2.new(0, 5, 0, 0),
                 Font = Enum.Font.Gotham,
@@ -230,7 +230,7 @@ function NebulaLib:CreateWindow(config)
 
             local ToggleFrame = CreateInstance("Frame", {
                 Parent = Tab.Content,
-                BackgroundColor3 = NebulaLib.Theme.LightContrast,
+                BackgroundColor3 = NebulaLib.Theme.Secondary,
                 Size = UDim2.new(1, -10, 0, 30),
                 Position = UDim2.new(0, 5, 0, 0)
             })
@@ -284,7 +284,7 @@ function NebulaLib:CreateWindow(config)
 
             local SliderFrame = CreateInstance("Frame", {
                 Parent = Tab.Content,
-                BackgroundColor3 = NebulaLib.Theme.LightContrast,
+                BackgroundColor3 = NebulaLib.Theme.Secondary,
                 Size = UDim2.new(1, -10, 0, 45),
                 Position = UDim2.new(0, 5, 0, 0)
             })
@@ -358,6 +358,190 @@ function NebulaLib:CreateWindow(config)
             end)
 
             return Slider
+        end
+
+        function Tab:AddColorPicker(config)
+            config = config or {}
+            local ColorPicker = {
+                Value = config.Default or Color3.fromRGB(255, 255, 255)
+            }
+
+            local ColorPickerFrame = CreateInstance("Frame", {
+                Parent = Tab.Content,
+                BackgroundColor3 = NebulaLib.Theme.Secondary,
+                Size = UDim2.new(1, -10, 0, 70),
+                Position = UDim2.new(0, 5, 0, 0)
+            })
+
+            local ColorPreview = CreateInstance("Frame", {
+                Parent = ColorPickerFrame,
+                BackgroundColor3 = ColorPicker.Value,
+                Position = UDim2.new(1, -60, 0.5, -25),
+                Size = UDim2.new(0, 50, 0, 50)
+            })
+
+            local ColorText = CreateInstance("TextLabel", {
+                Parent = ColorPickerFrame,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 10, 0, 5),
+                Size = UDim2.new(1, -80, 0, 20),
+                Font = Enum.Font.Gotham,
+                Text = config.Name or "Color Picker",
+                TextColor3 = NebulaLib.Theme.Text,
+                TextSize = 14,
+                TextXAlignment = Enum.TextXAlignment.Left
+            })
+
+            -- RGB Sliders
+            local function CreateColorSlider(color, yPos)
+                local SliderFrame = CreateInstance("Frame", {
+                    Parent = ColorPickerFrame,
+                    BackgroundColor3 = NebulaLib.Theme.Background,
+                    Position = UDim2.new(0, 10, 0, yPos),
+                    Size = UDim2.new(1, -80, 0, 10)
+                })
+
+                local SliderFill = CreateInstance("Frame", {
+                    Parent = SliderFrame,
+                    BackgroundColor3 = color == "R" and Color3.fromRGB(255,0,0) or color == "G" and Color3.fromRGB(0,255,0) or Color3.fromRGB(0,0,255),
+                    Size = UDim2.new(ColorPicker.Value[color]/255, 0, 1, 0)
+                })
+
+                CreateInstance("UICorner", {
+                    Parent = SliderFrame,
+                    CornerRadius = UDim.new(0, 4)
+                })
+
+                CreateInstance("UICorner", {
+                    Parent = SliderFill,
+                    CornerRadius = UDim.new(0, 4)
+                })
+
+                return SliderFrame, SliderFill
+            end
+
+            local RSlider, RFill = CreateColorSlider("R", 30)
+            local GSlider, GFill = CreateColorSlider("G", 45)
+            local BSlider, BFill = CreateColorSlider("B", 60)
+
+            -- Add corners and shadows
+            CreateInstance("UICorner", {
+                Parent = ColorPickerFrame,
+                CornerRadius = UDim.new(0, 8)
+            })
+
+            CreateInstance("UICorner", {
+                Parent = ColorPreview,
+                CornerRadius = UDim.new(0, 8)
+            })
+
+            -- Update function
+            local function UpdateColor(input, slider, color)
+                local percentage = math.clamp((input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
+                local value = math.floor(percentage * 255)
+                
+                local r, g, b = ColorPicker.Value.R * 255, ColorPicker.Value.G * 255, ColorPicker.Value.B * 255
+                if color == "R" then r = value
+                elseif color == "G" then g = value
+                else b = value end
+                
+                ColorPicker.Value = Color3.fromRGB(r, g, b)
+                ColorPreview.BackgroundColor3 = ColorPicker.Value
+                
+                if config.Callback then
+                    config.Callback(ColorPicker.Value)
+                end
+            end
+
+            -- Input handlers for each slider
+            local function SetupSliderInput(slider, fill, color)
+                slider.InputBegan:Connect(function(input)
+                    if input.UserInputType == Enum.UserInputType.MouseButton1 or
+                       input.UserInputType == Enum.UserInputType.Touch then
+                        UpdateColor(input, slider, color)
+                        local connection
+                        connection = RunService.RenderStepped:Connect(function()
+                            if input.UserInputState == Enum.UserInputState.End then
+                                connection:Disconnect()
+                            else
+                                UpdateColor(input, slider, color)
+                            end
+                        end)
+                    end
+                end)
+            end
+
+            SetupSliderInput(RSlider, RFill, "R")
+            SetupSliderInput(GSlider, GFill, "G")
+            SetupSliderInput(BSlider, BFill, "B")
+
+            return ColorPicker
+        end
+
+        function Tab:AddTextInput(config)
+            config = config or {}
+            local TextInput = {
+                Text = config.Default or ""
+            }
+
+            local InputFrame = CreateInstance("Frame", {
+                Parent = Tab.Content,
+                BackgroundColor3 = NebulaLib.Theme.Secondary,
+                Size = UDim2.new(1, -10, 0, 40),
+                Position = UDim2.new(0, 5, 0, 0)
+            })
+
+            local InputBox = CreateInstance("TextBox", {
+                Parent = InputFrame,
+                BackgroundColor3 = NebulaLib.Theme.Background,
+                Position = UDim2.new(0, 10, 0.5, -15),
+                Size = UDim2.new(1, -20, 0, 30),
+                Font = Enum.Font.Gotham,
+                PlaceholderText = config.Placeholder or "Enter text...",
+                Text = TextInput.Text,
+                TextColor3 = NebulaLib.Theme.Text,
+                PlaceholderColor3 = NebulaLib.Theme.SubText,
+                TextSize = 14,
+                ClearTextOnFocus = false
+            })
+
+            -- Add corners and shadows
+            CreateInstance("UICorner", {
+                Parent = InputFrame,
+                CornerRadius = UDim.new(0, 8)
+            })
+
+            CreateInstance("UICorner", {
+                Parent = InputBox,
+                CornerRadius = UDim.new(0, 8)
+            })
+
+            -- Text Changed handler
+            InputBox.Changed:Connect(function(prop)
+                if prop == "Text" then
+                    TextInput.Text = InputBox.Text
+                    if config.Callback then
+                        config.Callback(TextInput.Text)
+                    end
+                end
+            end)
+
+            -- Validation
+            if config.ValidationFunc then
+                InputBox.FocusLost:Connect(function()
+                    local success, result = pcall(config.ValidationFunc, TextInput.Text)
+                    if success and result then
+                        InputBox.BackgroundColor3 = NebulaLib.Theme.Background
+                    else
+                        InputBox.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
+                        task.delay(0.5, function()
+                            InputBox.BackgroundColor3 = NebulaLib.Theme.Background
+                        end)
+                    end
+                end)
+            end
+
+            return TextInput
         end
 
         return Tab
