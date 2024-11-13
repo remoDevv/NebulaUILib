@@ -1,11 +1,12 @@
 # Nebula Lib Documentation
 
-A comprehensive, mobile-friendly UI library for Roblox
+A comprehensive, mobile-friendly UI library for Roblox with theme customization support.
 
 ## Features
 
 - Mobile-responsive design
 - Customizable UI elements
+- Theme customization system with presets
 - Configuration saving system
 - Smooth animations and transitions
 - Easy-to-use API
@@ -32,36 +33,74 @@ local Window = NebulaLib:CreateWindow({
     ConfigFolder = "NebulaSettings",
     MobileDrag = true
 })
+```
 
---[[
-Name = <string> - The name displayed on the UI.
-SaveConfig = <bool> - Enables saving user preferences.
-ConfigFolder = <string> - Folder for saving settings.
-MobileDrag = <bool> - Allows drag functionality on mobile.
-]]
+### Theme Customization
+
+Nebula Lib comes with built-in theme presets and customization options:
+
+#### Using Theme Presets
+
+```lua
+-- Available presets: "Default", "Light", "Dark", "Contrast"
+NebulaLib:SetTheme("Dark") -- Switch to dark theme
+```
+
+#### Custom Theme Colors
+
+```lua
+NebulaLib:SetTheme({
+    Background = Color3.fromRGB(30, 30, 30),
+    Secondary = Color3.fromRGB(45, 45, 45),
+    Accent = Color3.fromRGB(138, 43, 226),
+    Text = Color3.fromRGB(255, 255, 255),
+    SubText = Color3.fromRGB(179, 179, 179)
+})
+```
+
+#### Creating Custom Theme Presets
+
+```lua
+NebulaLib:AddThemePreset("Custom", {
+    Background = Color3.fromRGB(20, 20, 20),
+    Secondary = Color3.fromRGB(30, 30, 30),
+    Accent = Color3.fromRGB(255, 128, 0),
+    Text = Color3.fromRGB(255, 255, 255),
+    SubText = Color3.fromRGB(200, 200, 200)
+})
+
+-- Use your custom theme
+NebulaLib:SetTheme("Custom")
+```
+
+#### Getting Current Theme
+
+```lua
+local currentTheme = NebulaLib:GetTheme()
+print(currentTheme.Background) -- Prints current background color
+```
+
+#### Getting Available Presets
+
+```lua
+local presets = NebulaLib:GetThemePresets()
+for name, colors in pairs(presets) do
+    print(name, colors.Background)
+end
 ```
 
 ### Creating a Tab
-
-Organize your UI elements into tabs:
 
 ```lua
 local Tab = Window:CreateTab({
     Name = "Main Tab",
     Icon = "rbxassetid://123456",
 })
-
---[[
-Name = <string> - The tab's name.
-Icon = <string> - URL or asset ID for the tab icon.
-]]
 ```
 
 ### UI Elements
 
 #### Buttons
-
-Add clickable buttons to your interface:
 
 ```lua
 Tab:AddButton({
@@ -70,16 +109,9 @@ Tab:AddButton({
         print("Button pressed!")
     end
 })
-
---[[
-Name = <string> - Button label.
-Callback = <function> - Executes when clicked.
-]]
 ```
 
 #### Toggles
-
-Create toggleable options:
 
 ```lua
 Tab:AddToggle({
@@ -89,17 +121,9 @@ Tab:AddToggle({
         print("Toggle set to:", Value)
     end
 })
-
---[[
-Name = <string> - Label for toggle.
-Default = <bool> - Initial value.
-Callback = <function> - Runs when toggle is changed.
-]]
 ```
 
 #### Sliders
-
-Add adjustable value sliders:
 
 ```lua
 Tab:AddSlider({
@@ -111,19 +135,9 @@ Tab:AddSlider({
         print("Slider set to:", Value)
     end
 })
-
---[[
-Name = <string> - Label for the slider.
-Min = <number> - Minimum value.
-Max = <number> - Maximum value.
-Default = <number> - Initial slider position.
-Callback = <function> - Executes when slider value changes.
-]]
 ```
 
 #### ColorPicker
-
-Add a color selection interface with RGB sliders:
 
 ```lua
 Tab:AddColorPicker({
@@ -133,17 +147,9 @@ Tab:AddColorPicker({
         print("Color selected:", Color)
     end
 })
-
---[[
-Name = <string> - ColorPicker label.
-Default = <Color3> - Initial color value.
-Callback = <function> - Executes when color changes.
-]]
 ```
 
 #### TextInput
-
-Add text input fields with validation support:
 
 ```lua
 Tab:AddTextInput({
@@ -157,19 +163,9 @@ Tab:AddTextInput({
         print("Text changed to:", Text)
     end
 })
-
---[[
-Name = <string> - TextInput label.
-Default = <string> - Initial text value.
-Placeholder = <string> - Placeholder text when empty.
-ValidationFunc = <function> - Optional validation function.
-Callback = <function> - Executes when text changes.
-]]
 ```
 
 #### Notifications
-
-Display temporary notifications:
 
 ```lua
 NebulaLib:ShowNotification({
@@ -177,17 +173,9 @@ NebulaLib:ShowNotification({
     Content = "Thanks for using Nebula Lib!",
     Time = 3
 })
-
---[[
-Title = <string> - Title of the notification.
-Content = <string> - Main message text.
-Time = <number> - Duration of notification.
-]]
 ```
 
 #### Dropdown Menus
-
-Create selectable dropdown menus:
 
 ```lua
 Tab:AddDropdown({
@@ -197,26 +185,6 @@ Tab:AddDropdown({
         print("Selected:", Value)
     end
 })
-
---[[
-Name = <string> - Dropdown label.
-Options = <table> - Options in dropdown.
-Callback = <function> - Executes on selection.
-]]
-```
-
-### Theme Customization
-
-The library uses the Replit Agent theme by default:
-
-```lua
-NebulaLib.Theme = {
-    Background = Color3.fromRGB(13, 17, 23),
-    Secondary = Color3.fromRGB(22, 27, 34),
-    Accent = Color3.fromRGB(88, 166, 255),
-    Text = Color3.fromRGB(230, 237, 243),
-    SubText = Color3.fromRGB(125, 133, 144)
-}
 ```
 
 ### Finalizing and Destroying
@@ -239,8 +207,7 @@ NebulaLib:Destroy()
 - All UI elements support both mouse and touch interactions
 - Configuration saving is optional and can be enabled per window
 - The interface can be dragged on both desktop and mobile devices
-- Modern Replit Agent theme with consistent styling
-- Support for RGB color selection
-- Text input validation capabilities
+- Theme changes are applied instantly to all UI elements
+- Support for RGB color selection and text input validation
 
 For more examples and advanced usage, please refer to the examples folder in the repository.
