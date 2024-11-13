@@ -58,21 +58,31 @@ local NebulaLib = {
     }
 }
 
--- Utility Functions with error handling
+-- Utility Functions with improved error handling and ZIndex management
+local function GetParentBaseZIndex(parent)
+    if not parent then return 0 end
+    local baseZIndex = parent:FindFirstChild("ZIndexValue")
+    return baseZIndex and baseZIndex.Value or parent.ZIndex or 1
+end
+
 local function CreateInstance(className, properties)
     assert(className, "className is required")
     local success, instance = pcall(Instance.new, className)
     assert(success, "Failed to create instance of " .. className)
     
-    -- Validate parent before setting properties
+    -- Handle ZIndex inheritance and layering
     if properties and properties.Parent then
         assert(typeof(properties.Parent) == "Instance", "Parent must be an Instance")
-    end
-    
-    -- Ensure proper ZIndex for layering
-    if properties and properties.Parent and not properties.ZIndex then
-        local parentZIndex = properties.Parent:FindFirstChild("ZIndex") and properties.Parent.ZIndex or 1
-        properties.ZIndex = parentZIndex + 1
+        if not properties.ZIndex then
+            local parentBaseZIndex = GetParentBaseZIndex(properties.Parent)
+            properties.ZIndex = parentBaseZIndex + 1
+            
+            -- Store base ZIndex for children
+            local zIndexValue = Instance.new("IntValue")
+            zIndexValue.Name = "ZIndexValue"
+            zIndexValue.Value = properties.ZIndex
+            zIndexValue.Parent = instance
+        end
     end
     
     for prop, value in pairs(properties or {}) do
@@ -128,7 +138,7 @@ function NebulaLib:CreateWindow(config)
         Window.MainGui.Parent = Services.CoreGui
     end
 
-    -- Main Frame
+    -- Main Frame with base ZIndex
     Window.MainFrame = CreateInstance("Frame", {
         Name = "MainFrame",
         Parent = Window.MainGui,
@@ -136,7 +146,7 @@ function NebulaLib:CreateWindow(config)
         Position = UDim2.new(0.5, -250, 0.5, -150),
         Size = UDim2.new(0, 500, 0, 300),
         ClipsDescendants = true,
-        ZIndex = 1
+        ZIndex = 100 -- Base ZIndex for window
     })
 
     -- Add Corner
@@ -151,17 +161,17 @@ function NebulaLib:CreateWindow(config)
         Parent = Window.MainFrame,
         BackgroundColor3 = self.Theme.Secondary,
         Size = UDim2.new(1, 0, 0, 30),
-        ZIndex = 2
+        ZIndex = 101
     })
 
-    -- Container initialization
+    -- Container initialization with proper ZIndex
     Window.TabContainer = CreateInstance("Frame", {
         Name = "TabContainer",
         Parent = Window.MainFrame,
         BackgroundColor3 = self.Theme.Secondary,
         Position = UDim2.new(0, 0, 0, 30),
         Size = UDim2.new(0, 120, 1, -30),
-        ZIndex = 2
+        ZIndex = 101
     })
 
     Window.ContentContainer = CreateInstance("Frame", {
@@ -171,10 +181,39 @@ function NebulaLib:CreateWindow(config)
         Position = UDim2.new(0, 120, 0, 30),
         Size = UDim2.new(1, -120, 1, -30),
         ClipsDescendants = true,
-        ZIndex = 2
+        ZIndex = 101
     })
 
-    -- CreateTab function with proper error handling
+    -- UI Element Creation Methods
+    function Window:AddLabel(config)
+        assert(type(config) == "table", "Config must be a table")
+        local label = CreateInstance("TextLabel", {
+            Name = config.Name or "Label",
+            Parent = self.ContentContainer,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, -20, 0, 20),
+            Position = UDim2.new(0, 10, 0, 0),
+            Font = Enum.Font.Gotham,
+            Text = config.Text or "",
+            TextColor3 = NebulaLib.Theme.Text,
+            TextSize = 14,
+            TextXAlignment = Enum.TextXAlignment.Left
+        })
+        return label
+    end
+
+    function Window:AddSeparator()
+        local separator = CreateInstance("Frame", {
+            Name = "Separator",
+            Parent = self.ContentContainer,
+            BackgroundColor3 = self.Theme.Secondary,
+            Size = UDim2.new(1, -20, 0, 1),
+            Position = UDim2.new(0, 10, 0, 0)
+        })
+        return separator
+    end
+
+    -- CreateTab function with proper error handling and ZIndex management
     function Window:CreateTab(config)
         assert(self.TabContainer, "TabContainer not initialized")
         assert(self.ContentContainer, "ContentContainer not initialized")
@@ -186,7 +225,7 @@ function NebulaLib:CreateWindow(config)
             Elements = {}
         }
 
-        -- Create tab button with proper error checking
+        -- Create tab button with proper ZIndex
         Tab.Button = CreateInstance("TextButton", {
             Name = Tab.Name,
             Parent = self.TabContainer,
@@ -196,10 +235,10 @@ function NebulaLib:CreateWindow(config)
             Text = Tab.Name,
             TextColor3 = NebulaLib.Theme.Text,
             TextSize = 14,
-            ZIndex = 3
+            ZIndex = 102
         })
 
-        -- Create content container with error checking
+        -- Create content container with proper ZIndex
         Tab.Content = CreateInstance("ScrollingFrame", {
             Name = "Content",
             Parent = self.ContentContainer,
@@ -208,10 +247,10 @@ function NebulaLib:CreateWindow(config)
             CanvasSize = UDim2.new(0, 0, 0, 0),
             ScrollBarThickness = 2,
             Visible = false,
-            ZIndex = 3
+            ZIndex = 102
         })
 
-        -- Add UIListLayout
+        -- Add UIListLayout with proper spacing
         CreateInstance("UIListLayout", {
             Parent = Tab.Content,
             SortOrder = Enum.SortOrder.LayoutOrder,
@@ -224,15 +263,17 @@ function NebulaLib:CreateWindow(config)
             Tab.Button.TextColor3 = NebulaLib.Theme.Accent
         end
         
-        -- Add tab switching logic
+        -- Add tab switching logic with smooth transitions
         Tab.Button.MouseButton1Click:Connect(function()
-            -- Hide all tabs
             for _, t in ipairs(self.Tabs) do
-                t.Content.Visible = false
-                t.Button.TextColor3 = NebulaLib.Theme.Text
+                if t.Content ~= Tab.Content then
+                    CreateTween(t.Content, {Transparency = 1})
+                    t.Content.Visible = false
+                    t.Button.TextColor3 = NebulaLib.Theme.Text
+                end
             end
-            -- Show selected tab
             Tab.Content.Visible = true
+            CreateTween(Tab.Content, {Transparency = 0})
             Tab.Button.TextColor3 = NebulaLib.Theme.Accent
         end)
 
@@ -241,7 +282,7 @@ function NebulaLib:CreateWindow(config)
         return Tab
     end
 
-    -- Title Text
+    -- Title Text with proper ZIndex
     Window.Title = CreateInstance("TextLabel", {
         Name = "Title",
         Parent = Window.TitleBar,
@@ -253,10 +294,10 @@ function NebulaLib:CreateWindow(config)
         TextColor3 = self.Theme.Text,
         TextSize = 14,
         TextXAlignment = Enum.TextXAlignment.Left,
-        ZIndex = 3
+        ZIndex = 102
     })
 
-    -- Toggle Visibility Button
+    -- Toggle Visibility Button with highest ZIndex
     Window.ToggleButton = CreateInstance("TextButton", {
         Name = "ToggleVisibility",
         Parent = Window.TitleBar,
@@ -269,7 +310,7 @@ function NebulaLib:CreateWindow(config)
         TextColor3 = self.Theme.Text,
         TextSize = 14,
         AutoButtonColor = true,
-        ZIndex = 10
+        ZIndex = 103
     })
 
     -- Add corner to match UI style
@@ -278,19 +319,16 @@ function NebulaLib:CreateWindow(config)
         CornerRadius = UDim.new(0, 4)
     })
 
-    -- Add toggle functionality
+    -- Add toggle functionality with smooth animations
     Window.ToggleButton.MouseButton1Click:Connect(function()
         local contentVisible = Window.MainFrame.Visible
-        Window.MainFrame.Visible = true  -- Keep visible during animation
-        local fadeOut = Services.TweenService:Create(
-            Window.MainFrame,
-            TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-            {
-                BackgroundTransparency = contentVisible and 1 or 0,
-                Size = contentVisible and UDim2.new(0, 500, 0, 30) or UDim2.new(0, 500, 0, 300)
-            }
-        )
-        fadeOut:Play()
+        Window.MainFrame.Visible = true
+        
+        CreateTween(Window.MainFrame, {
+            BackgroundTransparency = contentVisible and 1 or 0,
+            Size = contentVisible and UDim2.new(0, 500, 0, 30) or UDim2.new(0, 500, 0, 300)
+        })
+        
         Window.ToggleButton.Text = contentVisible and "+" or "-"
     end)
 
