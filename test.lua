@@ -1,7 +1,7 @@
 -- Nebula Library Demo Script
 -- This script demonstrates all UI components and animations
 
-local NebulaLib = loadstring(game:HttpGet(('path_to_nebula_lib')))()
+local NebulaLib = loadstring(game:HttpGet('https://raw.githubusercontent.com/remoDevv/NebulaUILib/refs/heads/main/NebulaLib.lua'))()
 
 -- Create window
 local Window = NebulaLib:CreateWindow({
