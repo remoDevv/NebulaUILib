@@ -18,8 +18,122 @@ local NebulaLib = {
         SubText = Color3.fromRGB(125, 133, 144)
     },
     Flags = {},
-    ConfigFolder = "NebulaSettings"
+    ConfigFolder = "NebulaSettings",
+    ThemePresets = {
+        Default = {
+            Background = Color3.fromRGB(13, 17, 23),
+            Secondary = Color3.fromRGB(22, 27, 34),
+            Accent = Color3.fromRGB(88, 166, 255),
+            Text = Color3.fromRGB(230, 237, 243),
+            SubText = Color3.fromRGB(125, 133, 144)
+        },
+        Light = {
+            Background = Color3.fromRGB(255, 255, 255),
+            Secondary = Color3.fromRGB(242, 242, 242),
+            Accent = Color3.fromRGB(0, 122, 255),
+            Text = Color3.fromRGB(0, 0, 0),
+            SubText = Color3.fromRGB(102, 102, 102)
+        },
+        Dark = {
+            Background = Color3.fromRGB(30, 30, 30),
+            Secondary = Color3.fromRGB(45, 45, 45),
+            Accent = Color3.fromRGB(138, 43, 226),
+            Text = Color3.fromRGB(255, 255, 255),
+            SubText = Color3.fromRGB(179, 179, 179)
+        },
+        Contrast = {
+            Background = Color3.fromRGB(0, 0, 0),
+            Secondary = Color3.fromRGB(20, 20, 20),
+            Accent = Color3.fromRGB(255, 215, 0),
+            Text = Color3.fromRGB(255, 255, 255),
+            SubText = Color3.fromRGB(200, 200, 200)
+        }
+    }
 }
+
+-- Theme Management Functions
+function NebulaLib:SetTheme(theme)
+    if type(theme) == "string" and self.ThemePresets[theme] then
+        self.Theme = table.clone(self.ThemePresets[theme])
+    elseif type(theme) == "table" then
+        for key, value in pairs(theme) do
+            if self.Theme[key] then
+                self.Theme[key] = value
+            end
+        end
+    end
+    self:UpdateAllElements()
+end
+
+function NebulaLib:GetTheme()
+    return table.clone(self.Theme)
+end
+
+function NebulaLib:GetThemePresets()
+    return table.clone(self.ThemePresets)
+end
+
+function NebulaLib:AddThemePreset(name, theme)
+    self.ThemePresets[name] = theme
+end
+
+function NebulaLib:UpdateAllElements()
+    for _, window in pairs(self.Windows) do
+        -- Update window elements
+        if window.MainFrame then
+            window.MainFrame.BackgroundColor3 = self.Theme.Background
+        end
+        if window.TitleBar then
+            window.TitleBar.BackgroundColor3 = self.Theme.Secondary
+        end
+        if window.Title then
+            window.Title.TextColor3 = self.Theme.Text
+        end
+        if window.TabContainer then
+            window.TabContainer.BackgroundColor3 = self.Theme.Secondary
+        end
+        
+        -- Update all tabs and their elements
+        if window.Tabs then
+            for _, tab in pairs(window.Tabs) do
+                if tab.Button then
+                    tab.Button.TextColor3 = self.Theme.Text
+                end
+                
+                -- Update all elements in the tab
+                if tab.Content then
+                    for _, element in pairs(tab.Content:GetChildren()) do
+                        if element:IsA("Frame") or element:IsA("TextButton") then
+                            element.BackgroundColor3 = self.Theme.Secondary
+                            
+                            -- Update specific element types
+                            if element.Name:find("Button") then
+                                element.TextColor3 = self.Theme.Text
+                            elseif element.Name:find("Toggle") then
+                                local toggleButton = element:FindFirstChild("ToggleButton")
+                                if toggleButton then
+                                    toggleButton.BackgroundColor3 = toggleButton.Value and self.Theme.Accent or self.Theme.Secondary
+                                end
+                            elseif element.Name:find("Slider") then
+                                local sliderFill = element:FindFirstChild("SliderFill")
+                                if sliderFill then
+                                    sliderFill.BackgroundColor3 = self.Theme.Accent
+                                end
+                            end
+                            
+                            -- Update text elements
+                            for _, textLabel in pairs(element:GetDescendants()) do
+                                if textLabel:IsA("TextLabel") then
+                                    textLabel.TextColor3 = self.Theme.Text
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
 
 -- Utility Functions
 local function CreateInstance(className, properties)
