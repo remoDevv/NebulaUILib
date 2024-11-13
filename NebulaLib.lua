@@ -2,11 +2,18 @@
 -- A mobile-friendly Roblox UI library with smooth animations
 -- Version: 1.0.0
 
-local TweenService = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
-local CoreGui = game:GetService("CoreGui")
-local HttpService = game:GetService("HttpService")
-local RunService = game:GetService("RunService")
+-- Service Initialization with proper error handling
+local Success, Services = pcall(function()
+    return {
+        RunService = game:GetService("RunService"),
+        Players = game:GetService("Players"),
+        CoreGui = game:GetService("CoreGui"),
+        TweenService = game:GetService("TweenService"),
+        UserInputService = game:GetService("UserInputService"),
+        HttpService = game:GetService("HttpService")
+    }
+end)
+assert(Success, "Failed to initialize services")
 
 local NebulaLib = {
     Windows = {},
@@ -51,15 +58,38 @@ local NebulaLib = {
     }
 }
 
+-- Utility Functions with error handling
+local function CreateInstance(className, properties)
+    assert(className, "className is required")
+    local success, instance = pcall(Instance.new, className)
+    assert(success, "Failed to create instance of " .. className)
+    
+    -- Validate parent before setting properties
+    if properties and properties.Parent then
+        assert(typeof(properties.Parent) == "Instance", "Parent must be an Instance")
+    end
+    
+    for prop, value in pairs(properties or {}) do
+        success, err = pcall(function()
+            instance[prop] = value
+        end)
+        if not success then
+            warn(string.format("Failed to set %s to %s: %s", prop, tostring(value), err))
+        end
+    end
+    return instance
+end
+
 -- Animation System
 local AnimationConfig = {
-    Duration = 0.2,
+    Duration = 0.15,
     EasingStyle = Enum.EasingStyle.Quad,
-    EasingDirection = Enum.EasingDirection.InOut
+    EasingDirection = Enum.EasingDirection.Out
 }
 
 local function CreateTween(instance, properties)
-    local tween = TweenService:Create(
+    assert(instance, "Instance is required for tweening")
+    local tween = Services.TweenService:Create(
         instance,
         TweenInfo.new(
             AnimationConfig.Duration,
@@ -72,245 +102,9 @@ local function CreateTween(instance, properties)
     return tween
 end
 
-local function CreateButtonAnimations(button)
-    local originalSize = button.Size
-    local originalColor = button.BackgroundColor3
-
-    button.MouseEnter:Connect(function()
-        CreateTween(button, {
-            BackgroundColor3 = originalColor:Lerp(Color3.new(1, 1, 1), 0.1)
-        })
-    end)
-
-    button.MouseLeave:Connect(function()
-        CreateTween(button, {
-            BackgroundColor3 = originalColor
-        })
-    end)
-
-    button.MouseButton1Down:Connect(function()
-        CreateTween(button, {
-            Size = originalSize * UDim2.new(0.98, 0, 0.98, 0)
-        })
-    end)
-
-    button.MouseButton1Up:Connect(function()
-        CreateTween(button, {
-            Size = originalSize
-        })
-    end)
-end
-
-local function CreateToggleAnimations(toggleButton, background)
-    local function UpdateToggle(value)
-        CreateTween(toggleButton, {
-            BackgroundColor3 = value and NebulaLib.Theme.Accent or NebulaLib.Theme.Secondary,
-            Position = value and 
-                UDim2.new(1, -25, 0.5, -10) or 
-                UDim2.new(0, 5, 0.5, -10)
-        })
-    end
-    return UpdateToggle
-end
-
-local function CreateDropdownAnimations(container, content)
-    local function UpdateDropdown(expanded)
-        CreateTween(container, {
-            Size = expanded and 
-                UDim2.new(1, -10, 0, content.AbsoluteContentSize.Y + 10) or 
-                UDim2.new(1, -10, 0, 30)
-        })
-        CreateTween(content, {
-            Transparency = expanded and 0 or 1
-        })
-    end
-    return UpdateDropdown
-end
-
-local function CreateSliderAnimations(fill, handle)
-    local function UpdateSlider(value, maxValue)
-        CreateTween(fill, {
-            Size = UDim2.new(value/maxValue, 0, 1, 0)
-        })
-        if handle then
-            CreateTween(handle, {
-                Position = UDim2.new(value/maxValue, -10, 0.5, -10)
-            })
-        end
-    end
-    return UpdateSlider
-end
-
-local function CreateTabAnimations(content)
-    local function UpdateTab(visible)
-        content.Visible = visible
-        if visible then
-            content.Transparency = 1
-            CreateTween(content, {
-                Transparency = 0
-            })
-        else
-            CreateTween(content, {
-                Transparency = 1
-            }).Completed:Connect(function()
-                content.Visible = false
-            end)
-        end
-    end
-    return UpdateTab
-end
-
-local NotificationQueue = {}
-local function ShowNotification(notification)
-    table.insert(NotificationQueue, notification)
-    
-    if #NotificationQueue == 1 then
-        local function ShowNext()
-            local current = NotificationQueue[1]
-            if current then
-                current.GuiObject.Position = UDim2.new(1, -330, 0, -100)
-                current.GuiObject.Visible = true
-                
-                CreateTween(current.GuiObject, {
-                    Position = UDim2.new(1, -330, 0, 20)
-                })
-                
-                wait(current.Duration)
-                
-                CreateTween(current.GuiObject, {
-                    Position = UDim2.new(1, -330, 0, -100)
-                }).Completed:Connect(function()
-                    current.GuiObject.Visible = false
-                    table.remove(NotificationQueue, 1)
-                    ShowNext()
-                end)
-            end
-        end
-        ShowNext()
-    end
-end
-
--- Theme Management Functions
-function NebulaLib:SetTheme(theme)
-    if type(theme) == "string" and self.ThemePresets[theme] then
-        self.Theme = table.clone(self.ThemePresets[theme])
-    elseif type(theme) == "table" then
-        for key, value in pairs(theme) do
-            if self.Theme[key] then
-                self.Theme[key] = value
-            end
-        end
-    end
-    self:UpdateAllElements()
-end
-
-function NebulaLib:GetTheme()
-    return table.clone(self.Theme)
-end
-
-function NebulaLib:GetThemePresets()
-    return table.clone(self.ThemePresets)
-end
-
-function NebulaLib:AddThemePreset(name, theme)
-    self.ThemePresets[name] = theme
-end
-
-function NebulaLib:UpdateAllElements()
-    for _, window in pairs(self.Windows) do
-        -- Update window elements
-        if window.MainFrame then
-            window.MainFrame.BackgroundColor3 = self.Theme.Background
-        end
-        if window.TitleBar then
-            window.TitleBar.BackgroundColor3 = self.Theme.Secondary
-        end
-        if window.Title then
-            window.Title.TextColor3 = self.Theme.Text
-        end
-        if window.TabContainer then
-            window.TabContainer.BackgroundColor3 = self.Theme.Secondary
-        end
-        
-        -- Update all tabs and their elements
-        if window.Tabs then
-            for _, tab in pairs(window.Tabs) do
-                if tab.Button then
-                    tab.Button.TextColor3 = self.Theme.Text
-                end
-                
-                -- Update all elements in the tab
-                if tab.Content then
-                    for _, element in pairs(tab.Content:GetChildren()) do
-                        if element:IsA("Frame") or element:IsA("TextButton") then
-                            element.BackgroundColor3 = self.Theme.Secondary
-                            
-                            -- Update specific element types
-                            if element.Name:find("Button") then
-                                element.TextColor3 = self.Theme.Text
-                                CreateButtonAnimations(element)
-                            elseif element.Name:find("Toggle") then
-                                local toggleButton = element:FindFirstChild("ToggleButton")
-                                if toggleButton then
-                                    toggleButton.BackgroundColor3 = toggleButton.Value and self.Theme.Accent or self.Theme.Secondary
-                                    local UpdateToggle = CreateToggleAnimations(toggleButton, element)
-                                    element.Changed:Connect(function(prop)
-                                        if prop == "Value" then
-                                            UpdateToggle(element.Value)
-                                        end
-                                    end)
-                                end
-                            elseif element.Name:find("Slider") then
-                                local sliderFill = element:FindFirstChild("SliderFill")
-                                if sliderFill then
-                                    sliderFill.BackgroundColor3 = self.Theme.Accent
-                                    local UpdateSlider = CreateSliderAnimations(sliderFill, element:FindFirstChild("SliderHandle"))
-                                    element.Changed:Connect(function(prop)
-                                        if prop == "Value" then
-                                            UpdateSlider(element.Value, element.Max)
-                                        end
-                                    end)
-                                end
-                            end
-                            
-                            -- Update text elements
-                            for _, textLabel in pairs(element:GetDescendants()) do
-                                if textLabel:IsA("TextLabel") then
-                                    textLabel.TextColor3 = self.Theme.Text
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-    end
-end
-
--- Utility Functions
-local function CreateInstance(className, properties)
-    local instance = Instance.new(className)
-    for prop, value in pairs(properties) do
-        instance[prop] = value
-    end
-    return instance
-end
-
---[[
-local function Tween(instance, properties, duration)
-    local tween = TweenService:Create(
-        instance,
-        TweenInfo.new(duration, Enum.EasingStyle.Quad),
-        properties
-    )
-    tween:Play()
-    return tween
-end
-]]--
-
 -- Core UI Creation
 function NebulaLib:CreateWindow(config)
-    config = config or {}
+    assert(type(config) == "table", "Config must be a table")
     local Window = {
         Name = config.Name or "Nebula Interface",
         Tabs = {},
@@ -319,12 +113,14 @@ function NebulaLib:CreateWindow(config)
         MobileDrag = config.MobileDrag or true
     }
 
-    -- Main GUI Container
-    Window.MainGui = CreateInstance("ScreenGui", {
-        Name = "NebulaLib",
-        Parent = CoreGui,
-        ResetOnSpawn = false
-    })
+    -- Main GUI Container with protection
+    Window.MainGui = (syn and syn.protect_gui) and syn.protect_gui(CreateInstance("ScreenGui")) or CreateInstance("ScreenGui")
+    Window.MainGui.Name = "NebulaLib"
+    if Services.RunService:IsStudio() then
+        Window.MainGui.Parent = Services.Players.LocalPlayer:WaitForChild("PlayerGui")
+    else
+        Window.MainGui.Parent = Services.CoreGui
+    end
 
     -- Main Frame
     Window.MainFrame = CreateInstance("Frame", {
@@ -350,6 +146,71 @@ function NebulaLib:CreateWindow(config)
         Size = UDim2.new(1, 0, 0, 30)
     })
 
+    -- Container initialization
+    Window.TabContainer = CreateInstance("Frame", {
+        Name = "TabContainer",
+        Parent = Window.MainFrame,
+        BackgroundColor3 = self.Theme.Secondary,
+        Position = UDim2.new(0, 0, 0, 30),
+        Size = UDim2.new(0, 120, 1, -30)
+    })
+
+    Window.ContentContainer = CreateInstance("Frame", {
+        Name = "ContentContainer",
+        Parent = Window.MainFrame,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(0, 120, 0, 30),
+        Size = UDim2.new(1, -120, 1, -30),
+        ClipsDescendants = true
+    })
+
+    -- CreateTab function with proper error handling
+    function Window:CreateTab(config)
+        assert(self.TabContainer, "TabContainer not initialized")
+        assert(self.ContentContainer, "ContentContainer not initialized")
+        
+        config = config or {}
+        local Tab = {
+            Name = config.Name or "Tab",
+            Icon = config.Icon,
+            Elements = {}
+        }
+
+        -- Create tab button with proper error checking
+        Tab.Button = CreateInstance("TextButton", {
+            Name = Tab.Name,
+            Parent = self.TabContainer,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 0, 30),
+            Font = Enum.Font.Gotham,
+            Text = Tab.Name,
+            TextColor3 = NebulaLib.Theme.Text,
+            TextSize = 14
+        })
+
+        -- Create content container with error checking
+        Tab.Content = CreateInstance("ScrollingFrame", {
+            Name = "Content",
+            Parent = self.ContentContainer,
+            BackgroundTransparency = 1,
+            Size = UDim2.new(1, 0, 1, 0),
+            CanvasSize = UDim2.new(0, 0, 0, 0),
+            ScrollBarThickness = 2,
+            Visible = false
+        })
+
+        -- Add UIListLayout
+        CreateInstance("UIListLayout", {
+            Parent = Tab.Content,
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding = UDim.new(0, 5)
+        })
+
+        -- Add to tabs table
+        table.insert(self.Tabs, Tab)
+        return Tab
+    end
+
     -- Title Text
     Window.Title = CreateInstance("TextLabel", {
         Name = "Title",
@@ -364,24 +225,35 @@ function NebulaLib:CreateWindow(config)
         TextXAlignment = Enum.TextXAlignment.Left
     })
 
-    -- Tab Container
-    Window.TabContainer = CreateInstance("Frame", {
-        Name = "TabContainer",
-        Parent = Window.MainFrame,
-        BackgroundColor3 = self.Theme.Secondary,
-        Position = UDim2.new(0, 0, 0, 30),
-        Size = UDim2.new(0, 120, 1, -30)
+    -- Toggle Visibility Button
+    Window.ToggleButton = CreateInstance("TextButton", {
+        Name = "ToggleVisibility",
+        Parent = Window.TitleBar,
+        BackgroundTransparency = 1,
+        Position = UDim2.new(1, -25, 0, 0),
+        Size = UDim2.new(0, 25, 1, 0),
+        Font = Enum.Font.GothamBold,
+        Text = "-",
+        TextColor3 = self.Theme.Text,
+        TextSize = 14
     })
 
-    -- Tab Content Container
-    Window.ContentContainer = CreateInstance("Frame", {
-        Name = "ContentContainer",
-        Parent = Window.MainFrame,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 120, 0, 30),
-        Size = UDim2.new(1, -120, 1, -30),
-        ClipsDescendants = true
-    })
+    -- Add toggle functionality
+    Window.ToggleButton.MouseButton1Click:Connect(function()
+        local contentVisible = Window.MainFrame.Visible
+        -- Create smooth fade animation
+        local fadeOut = Services.TweenService:Create(
+            Window.MainFrame,
+            TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+            {BackgroundTransparency = contentVisible and 1 or 0}
+        )
+        fadeOut:Play()
+        -- Update visibility after animation
+        fadeOut.Completed:Connect(function()
+            Window.MainFrame.Visible = not contentVisible
+            Window.ToggleButton.Text = contentVisible and "+" or "-"
+        end)
+    end)
 
     -- Dragging Functionality
     local dragging, dragInput, dragStart, startPos
@@ -418,506 +290,13 @@ function NebulaLib:CreateWindow(config)
         end
     end)
 
-    UserInputService.InputChanged:Connect(function(input)
+    Services.UserInputService.InputChanged:Connect(function(input)
         if input == dragInput and dragging then
             UpdateDrag(input)
         end
     end)
 
-    -- Window Methods
-    function Window:CreateTab(config)
-        config = config or {}
-        local Tab = {
-            Name = config.Name or "Tab",
-            Icon = config.Icon
-        }
-
-        -- Tab Button
-        Tab.Button = CreateInstance("TextButton", {
-            Name = config.Name,
-            Parent = Window.TabContainer,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 0, 30),
-            Font = Enum.Font.Gotham,
-            Text = Tab.Name,
-            TextColor3 = self.Theme.Text,
-            TextSize = 14
-        })
-
-        -- Tab Content
-        Tab.Content = CreateInstance("ScrollingFrame", {
-            Name = "Content",
-            Parent = Window.ContentContainer,
-            BackgroundTransparency = 1,
-            Size = UDim2.new(1, 0, 1, 0),
-            CanvasSize = UDim2.new(0, 0, 0, 0),
-            ScrollBarThickness = 2,
-            Visible = false
-        })
-
-        -- Layout for Tab Content
-        local UIListLayout = CreateInstance("UIListLayout", {
-            Parent = Tab.Content,
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding = UDim.new(0, 5)
-        })
-
-        -- Add Tab Animations
-        local UpdateTab = CreateTabAnimations(Tab.Content)
-        
-        -- Tab Button Click Event
-        Tab.Button.MouseButton1Click:Connect(function()
-            for _, otherTab in pairs(Window.Tabs) do
-                UpdateTab(otherTab.Content, false)
-            end
-            UpdateTab(Tab.Content, true)
-        end)
-
-        -- Tab Methods
-        function Tab:AddButton(config)
-            config = config or {}
-            local Button = CreateInstance("TextButton", {
-                Parent = Tab.Content,
-                BackgroundColor3 = NebulaLib.Theme.Secondary,
-                Size = UDim2.new(1, -10, 0, 30),
-                Position = UDim2.new(0, 5, 0, 0),
-                Font = Enum.Font.Gotham,
-                Text = config.Name or "Button",
-                TextColor3 = NebulaLib.Theme.Text,
-                TextSize = 14
-            })
-
-            CreateInstance("UICorner", {
-                Parent = Button,
-                CornerRadius = UDim.new(0, 4)
-            })
-
-            Button.MouseButton1Click:Connect(function()
-                if config.Callback then
-                    config.Callback()
-                end
-            end)
-
-            CreateButtonAnimations(Button)
-
-            return Button
-        end
-
-        function Tab:AddToggle(config)
-            config = config or {}
-            local Toggle = {
-                Value = config.Default or false
-            }
-
-            local ToggleFrame = CreateInstance("Frame", {
-                Parent = Tab.Content,
-                BackgroundColor3 = NebulaLib.Theme.Secondary,
-                Size = UDim2.new(1, -10, 0, 30),
-                Position = UDim2.new(0, 5, 0, 0)
-            })
-
-            local ToggleButton = CreateInstance("TextButton", {
-                Parent = ToggleFrame,
-                BackgroundColor3 = Toggle.Value and NebulaLib.Theme.Accent or NebulaLib.Theme.DarkContrast,
-                Position = UDim2.new(1, -40, 0.5, -10),
-                Size = UDim2.new(0, 20, 0, 20),
-                Text = ""
-            })
-
-            local ToggleText = CreateInstance("TextLabel", {
-                Parent = ToggleFrame,
-                BackgroundTransparency = 1,
-                Position = UDim2.new(0, 10, 0, 0),
-                Size = UDim2.new(1, -60, 1, 0),
-                Font = Enum.Font.Gotham,
-                Text = config.Name or "Toggle",
-                TextColor3 = NebulaLib.Theme.Text,
-                TextSize = 14,
-                TextXAlignment = Enum.TextXAlignment.Left
-            })
-
-            CreateInstance("UICorner", {
-                Parent = ToggleFrame,
-                CornerRadius = UDim.new(0, 4)
-            })
-
-            CreateInstance("UICorner", {
-                Parent = ToggleButton,
-                CornerRadius = UDim.new(0, 4)
-            })
-
-            local UpdateToggle = CreateToggleAnimations(ToggleButton, ToggleFrame)
-
-            ToggleButton.MouseButton1Click:Connect(function()
-                Toggle.Value = not Toggle.Value
-                UpdateToggle(Toggle.Value)
-                if config.Callback then
-                    config.Callback(Toggle.Value)
-                end
-            end)
-
-            return Toggle
-        end
-
-        function Tab:AddSlider(config)
-            config = config or {}
-            local Slider = {
-                Value = config.Default or config.Min or 0
-            }
-
-            local SliderFrame = CreateInstance("Frame", {
-                Parent = Tab.Content,
-                BackgroundColor3 = NebulaLib.Theme.Secondary,
-                Size = UDim2.new(1, -10, 0, 45),
-                Position = UDim2.new(0, 5, 0, 0)
-            })
-
-            local SliderText = CreateInstance("TextLabel", {
-                Parent = SliderFrame,
-                BackgroundTransparency = 1,
-                Position = UDim2.new(0, 10, 0, 0),
-                Size = UDim2.new(1, -20, 0, 20),
-                Font = Enum.Font.Gotham,
-                Text = config.Name or "Slider",
-                TextColor3 = NebulaLib.Theme.Text,
-                TextSize = 14,
-                TextXAlignment = Enum.TextXAlignment.Left
-            })
-
-            local SliderBackground = CreateInstance("Frame", {
-                Parent = SliderFrame,
-                BackgroundColor3 = NebulaLib.Theme.DarkContrast,
-                Position = UDim2.new(0, 10, 0, 25),
-                Size = UDim2.new(1, -20, 0, 10)
-            })
-
-            local SliderFill = CreateInstance("Frame", {
-                Parent = SliderBackground,
-                BackgroundColor3 = NebulaLib.Theme.Accent,
-                Size = UDim2.new(0, 0, 1, 0)
-            })
-
-            local SliderHandle = CreateInstance("Frame", {
-                Parent = SliderBackground,
-                BackgroundColor3 = NebulaLib.Theme.Accent,
-                Position = UDim2.new(0, 0, 0.5, -10),
-                Size = UDim2.new(0, 20, 0, 20)
-            })
-
-            CreateInstance("UICorner", {
-                Parent = SliderFrame,
-                CornerRadius = UDim.new(0, 4)
-            })
-
-            CreateInstance("UICorner", {
-                Parent = SliderBackground,
-                CornerRadius = UDim.new(0, 4)
-            })
-
-            CreateInstance("UICorner", {
-                Parent = SliderFill,
-                CornerRadius = UDim.new(0, 4)
-            })
-
-            CreateInstance("UICorner", {
-                Parent = SliderHandle,
-                CornerRadius = UDim.new(0, 4)
-            })
-
-            local UpdateSlider = CreateSliderAnimations(SliderFill, SliderHandle)
-
-            local function UpdateSliderValue(input)
-                local pos = UDim2.new(math.clamp((input.Position.X - SliderBackground.AbsolutePosition.X) / SliderBackground.AbsoluteSize.X, 0, 1), 0, 1, 0)
-                local value = math.floor(((pos.X.Scale * (config.Max - config.Min)) + config.Min) * 100) / 100
-                Slider.Value = value
-                SliderText.Text = config.Name .. ": " .. tostring(value)
-                UpdateSlider(value, config.Max)
-                if config.Callback then
-                    config.Callback(value)
-                end
-            end
-
-            SliderBackground.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or
-                   input.UserInputType == Enum.UserInputType.Touch then
-                    UpdateSliderValue(input)
-                    local connection
-                    connection = RunService.RenderStepped:Connect(function()
-                        if input.UserInputState == Enum.UserInputState.End then
-                            connection:Disconnect()
-                        else
-                            UpdateSliderValue(input)
-                        end
-                    end)
-                end
-            end)
-
-            return Slider
-        end
-
-        function Tab:AddColorPicker(config)
-            config = config or {}
-            local ColorPicker = {
-                Value = config.Default or Color3.fromRGB(255, 255, 255)
-            }
-
-            local ColorPickerFrame = CreateInstance("Frame", {
-                Parent = Tab.Content,
-                BackgroundColor3 = NebulaLib.Theme.Secondary,
-                Size = UDim2.new(1, -10, 0, 70),
-                Position = UDim2.new(0, 5, 0, 0)
-            })
-
-            local ColorPreview = CreateInstance("Frame", {
-                Parent = ColorPickerFrame,
-                BackgroundColor3 = ColorPicker.Value,
-                Position = UDim2.new(1, -60, 0.5, -25),
-                Size = UDim2.new(0, 50, 0, 50)
-            })
-
-            local ColorText = CreateInstance("TextLabel", {
-                Parent = ColorPickerFrame,
-                BackgroundTransparency = 1,
-                Position = UDim2.new(0, 10, 0, 5),
-                Size = UDim2.new(1, -80, 0, 20),
-                Font = Enum.Font.Gotham,
-                Text = config.Name or "Color Picker",
-                TextColor3 = NebulaLib.Theme.Text,
-                TextSize = 14,
-                TextXAlignment = Enum.TextXAlignment.Left
-            })
-
-            -- RGB Sliders
-            local function CreateColorSlider(color, yPos)
-                local SliderFrame = CreateInstance("Frame", {
-                    Parent = ColorPickerFrame,
-                    BackgroundColor3 = NebulaLib.Theme.Background,
-                    Position = UDim2.new(0, 10, 0, yPos),
-                    Size = UDim2.new(1, -80, 0, 10)
-                })
-
-                local SliderFill = CreateInstance("Frame", {
-                    Parent = SliderFrame,
-                    BackgroundColor3 = color == "R" and Color3.fromRGB(255,0,0) or color == "G" and Color3.fromRGB(0,255,0) or Color3.fromRGB(0,0,255),
-                    Size = UDim2.new(ColorPicker.Value[color]/255, 0, 1, 0)
-                })
-
-                CreateInstance("UICorner", {
-                    Parent = SliderFrame,
-                    CornerRadius = UDim.new(0, 4)
-                })
-
-                CreateInstance("UICorner", {
-                    Parent = SliderFill,
-                    CornerRadius = UDim.new(0, 4)
-                })
-
-                return SliderFrame, SliderFill
-            end
-
-            local RSlider, RFill = CreateColorSlider("R", 30)
-            local GSlider, GFill = CreateColorSlider("G", 45)
-            local BSlider, BFill = CreateColorSlider("B", 60)
-
-            -- Add corners and shadows
-            CreateInstance("UICorner", {
-                Parent = ColorPickerFrame,
-                CornerRadius = UDim.new(0, 8)
-            })
-
-            CreateInstance("UICorner", {
-                Parent = ColorPreview,
-                CornerRadius = UDim.new(0, 8)
-            })
-
-            -- Update function
-            local function UpdateColor(input, slider, color)
-                local percentage = math.clamp((input.Position.X - slider.AbsolutePosition.X) / slider.AbsoluteSize.X, 0, 1)
-                local value = math.floor(percentage * 255)
-                
-                local r, g, b = ColorPicker.Value.R * 255, ColorPicker.Value.G * 255, ColorPicker.Value.B * 255
-                if color == "R" then r = value
-                elseif color == "G" then g = value
-                else b = value end
-                
-                ColorPicker.Value = Color3.fromRGB(r, g, b)
-                ColorPreview.BackgroundColor3 = ColorPicker.Value
-                
-                if config.Callback then
-                    config.Callback(ColorPicker.Value)
-                end
-            end
-
-            -- Input handlers for each slider
-            local function SetupSliderInput(slider, fill, color)
-                slider.InputBegan:Connect(function(input)
-                    if input.UserInputType == Enum.UserInputType.MouseButton1 or
-                       input.UserInputType == Enum.UserInputType.Touch then
-                        UpdateColor(input, slider, color)
-                        local connection
-                        connection = RunService.RenderStepped:Connect(function()
-                            if input.UserInputState == Enum.UserInputState.End then
-                                connection:Disconnect()
-                            else
-                                UpdateColor(input, slider, color)
-                            end
-                        end)
-                    end
-                end)
-            end
-
-            SetupSliderInput(RSlider, RFill, "R")
-            SetupSliderInput(GSlider, GFill, "G")
-            SetupSliderInput(BSlider, BFill, "B")
-
-            return ColorPicker
-        end
-
-        function Tab:AddTextInput(config)
-            config = config or {}
-            local TextInput = {
-                Text = config.Default or ""
-            }
-
-            local InputFrame = CreateInstance("Frame", {
-                Parent = Tab.Content,
-                BackgroundColor3 = NebulaLib.Theme.Secondary,
-                Size = UDim2.new(1, -10, 0, 40),
-                Position = UDim2.new(0, 5, 0, 0)
-            })
-
-            local InputBox = CreateInstance("TextBox", {
-                Parent = InputFrame,
-                BackgroundColor3 = NebulaLib.Theme.Background,
-                Position = UDim2.new(0, 10, 0.5, -15),
-                Size = UDim2.new(1, -20, 0, 30),
-                Font = Enum.Font.Gotham,
-                PlaceholderText = config.Placeholder or "Enter text...",
-                Text = TextInput.Text,
-                TextColor3 = NebulaLib.Theme.Text,
-                PlaceholderColor3 = NebulaLib.Theme.SubText,
-                TextSize = 14,
-                ClearTextOnFocus = false
-            })
-
-            -- Add corners and shadows
-            CreateInstance("UICorner", {
-                Parent = InputFrame,
-                CornerRadius = UDim.new(0, 8)
-            })
-
-            CreateInstance("UICorner", {
-                Parent = InputBox,
-                CornerRadius = UDim.new(0, 8)
-            })
-
-            -- Text Changed handler
-            InputBox.Changed:Connect(function(prop)
-                if prop == "Text" then
-                    TextInput.Text = InputBox.Text
-                    if config.Callback then
-                        config.Callback(TextInput.Text)
-                    end
-                end
-            end)
-
-            -- Validation
-            if config.ValidationFunc then
-                InputBox.FocusLost:Connect(function()
-                    local success, result = pcall(config.ValidationFunc, TextInput.Text)
-                    if success and result then
-                        InputBox.BackgroundColor3 = NebulaLib.Theme.Background
-                    else
-                        InputBox.BackgroundColor3 = Color3.fromRGB(255, 50, 50)
-                        task.delay(0.5, function()
-                            InputBox.BackgroundColor3 = NebulaLib.Theme.Background
-                        end)
-                    end
-                end)
-            end
-
-            return TextInput
-        end
-
-        table.insert(Window.Tabs, Tab)
-        return Tab
-    end
-
-    table.insert(self.Windows, Window)
     return Window
-end
-
-function NebulaLib:ShowNotification(config)
-    config = config or {}
-    
-    local Notification = CreateInstance("Frame", {
-        Parent = self.Windows[1].MainGui,
-        BackgroundColor3 = self.Theme.Background,
-        Position = UDim2.new(1, -330, 0, -100),
-        Size = UDim2.new(0, 300, 0, 100),
-        ClipsDescendants = true
-    })
-
-    CreateInstance("UICorner", {
-        Parent = Notification,
-        CornerRadius = UDim.new(0, 6)
-    })
-
-    local Title = CreateInstance("TextLabel", {
-        Parent = Notification,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 10, 0, 10),
-        Size = UDim2.new(1, -20, 0, 20),
-        Font = Enum.Font.GothamBold,
-        Text = config.Title or "Notification",
-        TextColor3 = self.Theme.Text,
-        TextSize = 16,
-        TextXAlignment = Enum.TextXAlignment.Left
-    })
-
-    local Content = CreateInstance("TextLabel", {
-        Parent = Notification,
-        BackgroundTransparency = 1,
-        Position = UDim2.new(0, 10, 0, 40),
-        Size = UDim2.new(1, -20, 0, 50),
-        Font = Enum.Font.Gotham,
-        Text = config.Content or "",
-        TextColor3 = self.Theme.Text,
-        TextSize = 14,
-        TextXAlignment = Enum.TextXAlignment.Left,
-        TextWrapped = true
-    })
-
-    table.insert(NotificationQueue, {
-        GuiObject = Notification,
-        Duration = config.Time or 3
-    })
-    ShowNotification(NotificationQueue[#NotificationQueue])
-    --[[
-    Tween(Notification, {Position = UDim2.new(1, -310, 1, -110)}, 0.5)
-    task.delay(config.Time or 3, function()
-        Tween(Notification, {Position = UDim2.new(1, 10, 1, -110)}, 0.5).Completed:Wait()
-        Notification:Destroy()
-    end)
-    ]]--
-end
-
-function NebulaLib:Init()
-    -- Load saved configurations if enabled
-    for _, window in ipairs(self.Windows) do
-        if window.SaveConfig then
-            -- Implementation for loading saved configs
-        end
-    end
-end
-
-function NebulaLib:Destroy()
-    for _, window in ipairs(self.Windows) do
-        if window.MainGui then
-            window.MainGui:Destroy()
-        end
-    end
-    self.Windows = {}
 end
 
 return NebulaLib
