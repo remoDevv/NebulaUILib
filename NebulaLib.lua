@@ -1,5 +1,5 @@
 -- Nebula Lib
--- A mobile-friendly Roblox UI library
+-- A mobile-friendly Roblox UI library with smooth animations
 -- Version: 1.0.0
 
 local TweenService = game:GetService("TweenService")
@@ -50,6 +50,145 @@ local NebulaLib = {
         }
     }
 }
+
+-- Animation System
+local AnimationConfig = {
+    Duration = 0.2,
+    EasingStyle = Enum.EasingStyle.Quad,
+    EasingDirection = Enum.EasingDirection.InOut
+}
+
+local function CreateTween(instance, properties)
+    local tween = TweenService:Create(
+        instance,
+        TweenInfo.new(
+            AnimationConfig.Duration,
+            AnimationConfig.EasingStyle,
+            AnimationConfig.EasingDirection
+        ),
+        properties
+    )
+    tween:Play()
+    return tween
+end
+
+local function CreateButtonAnimations(button)
+    local originalSize = button.Size
+    local originalColor = button.BackgroundColor3
+
+    button.MouseEnter:Connect(function()
+        CreateTween(button, {
+            BackgroundColor3 = originalColor:Lerp(Color3.new(1, 1, 1), 0.1)
+        })
+    end)
+
+    button.MouseLeave:Connect(function()
+        CreateTween(button, {
+            BackgroundColor3 = originalColor
+        })
+    end)
+
+    button.MouseButton1Down:Connect(function()
+        CreateTween(button, {
+            Size = originalSize * UDim2.new(0.98, 0, 0.98, 0)
+        })
+    end)
+
+    button.MouseButton1Up:Connect(function()
+        CreateTween(button, {
+            Size = originalSize
+        })
+    end)
+end
+
+local function CreateToggleAnimations(toggleButton, background)
+    local function UpdateToggle(value)
+        CreateTween(toggleButton, {
+            BackgroundColor3 = value and NebulaLib.Theme.Accent or NebulaLib.Theme.Secondary,
+            Position = value and 
+                UDim2.new(1, -25, 0.5, -10) or 
+                UDim2.new(0, 5, 0.5, -10)
+        })
+    end
+    return UpdateToggle
+end
+
+local function CreateDropdownAnimations(container, content)
+    local function UpdateDropdown(expanded)
+        CreateTween(container, {
+            Size = expanded and 
+                UDim2.new(1, -10, 0, content.AbsoluteContentSize.Y + 10) or 
+                UDim2.new(1, -10, 0, 30)
+        })
+        CreateTween(content, {
+            Transparency = expanded and 0 or 1
+        })
+    end
+    return UpdateDropdown
+end
+
+local function CreateSliderAnimations(fill, handle)
+    local function UpdateSlider(value, maxValue)
+        CreateTween(fill, {
+            Size = UDim2.new(value/maxValue, 0, 1, 0)
+        })
+        if handle then
+            CreateTween(handle, {
+                Position = UDim2.new(value/maxValue, -10, 0.5, -10)
+            })
+        end
+    end
+    return UpdateSlider
+end
+
+local function CreateTabAnimations(content)
+    local function UpdateTab(visible)
+        content.Visible = visible
+        if visible then
+            content.Transparency = 1
+            CreateTween(content, {
+                Transparency = 0
+            })
+        else
+            CreateTween(content, {
+                Transparency = 1
+            }).Completed:Connect(function()
+                content.Visible = false
+            end)
+        end
+    end
+    return UpdateTab
+end
+
+local NotificationQueue = {}
+local function ShowNotification(notification)
+    table.insert(NotificationQueue, notification)
+    
+    if #NotificationQueue == 1 then
+        local function ShowNext()
+            local current = NotificationQueue[1]
+            if current then
+                current.GuiObject.Position = UDim2.new(1, -330, 0, -100)
+                current.GuiObject.Visible = true
+                
+                CreateTween(current.GuiObject, {
+                    Position = UDim2.new(1, -330, 0, 20)
+                })
+                
+                wait(current.Duration)
+                
+                CreateTween(current.GuiObject, {
+                    Position = UDim2.new(1, -330, 0, -100)
+                }).Completed:Connect(function()
+                    current.GuiObject.Visible = false
+                    table.remove(NotificationQueue, 1)
+                    ShowNext()
+                end)
+            end
+        end
+        ShowNext()
+    end
+end
 
 -- Theme Management Functions
 function NebulaLib:SetTheme(theme)
@@ -109,15 +248,28 @@ function NebulaLib:UpdateAllElements()
                             -- Update specific element types
                             if element.Name:find("Button") then
                                 element.TextColor3 = self.Theme.Text
+                                CreateButtonAnimations(element)
                             elseif element.Name:find("Toggle") then
                                 local toggleButton = element:FindFirstChild("ToggleButton")
                                 if toggleButton then
                                     toggleButton.BackgroundColor3 = toggleButton.Value and self.Theme.Accent or self.Theme.Secondary
+                                    local UpdateToggle = CreateToggleAnimations(toggleButton, element)
+                                    element.Changed:Connect(function(prop)
+                                        if prop == "Value" then
+                                            UpdateToggle(element.Value)
+                                        end
+                                    end)
                                 end
                             elseif element.Name:find("Slider") then
                                 local sliderFill = element:FindFirstChild("SliderFill")
                                 if sliderFill then
                                     sliderFill.BackgroundColor3 = self.Theme.Accent
+                                    local UpdateSlider = CreateSliderAnimations(sliderFill, element:FindFirstChild("SliderHandle"))
+                                    element.Changed:Connect(function(prop)
+                                        if prop == "Value" then
+                                            UpdateSlider(element.Value, element.Max)
+                                        end
+                                    end)
                                 end
                             end
                             
@@ -144,6 +296,7 @@ local function CreateInstance(className, properties)
     return instance
 end
 
+--[[
 local function Tween(instance, properties, duration)
     local tween = TweenService:Create(
         instance,
@@ -153,6 +306,7 @@ local function Tween(instance, properties, duration)
     tween:Play()
     return tween
 end
+]]--
 
 -- Core UI Creation
 function NebulaLib:CreateWindow(config)
@@ -308,6 +462,17 @@ function NebulaLib:CreateWindow(config)
             Padding = UDim.new(0, 5)
         })
 
+        -- Add Tab Animations
+        local UpdateTab = CreateTabAnimations(Tab.Content)
+        
+        -- Tab Button Click Event
+        Tab.Button.MouseButton1Click:Connect(function()
+            for _, otherTab in pairs(Window.Tabs) do
+                UpdateTab(otherTab.Content, false)
+            end
+            UpdateTab(Tab.Content, true)
+        end)
+
         -- Tab Methods
         function Tab:AddButton(config)
             config = config or {}
@@ -332,6 +497,8 @@ function NebulaLib:CreateWindow(config)
                     config.Callback()
                 end
             end)
+
+            CreateButtonAnimations(Button)
 
             return Button
         end
@@ -379,9 +546,11 @@ function NebulaLib:CreateWindow(config)
                 CornerRadius = UDim.new(0, 4)
             })
 
+            local UpdateToggle = CreateToggleAnimations(ToggleButton, ToggleFrame)
+
             ToggleButton.MouseButton1Click:Connect(function()
                 Toggle.Value = not Toggle.Value
-                ToggleButton.BackgroundColor3 = Toggle.Value and NebulaLib.Theme.Accent or NebulaLib.Theme.DarkContrast
+                UpdateToggle(Toggle.Value)
                 if config.Callback then
                     config.Callback(Toggle.Value)
                 end
@@ -428,6 +597,13 @@ function NebulaLib:CreateWindow(config)
                 Size = UDim2.new(0, 0, 1, 0)
             })
 
+            local SliderHandle = CreateInstance("Frame", {
+                Parent = SliderBackground,
+                BackgroundColor3 = NebulaLib.Theme.Accent,
+                Position = UDim2.new(0, 0, 0.5, -10),
+                Size = UDim2.new(0, 20, 0, 20)
+            })
+
             CreateInstance("UICorner", {
                 Parent = SliderFrame,
                 CornerRadius = UDim.new(0, 4)
@@ -443,14 +619,19 @@ function NebulaLib:CreateWindow(config)
                 CornerRadius = UDim.new(0, 4)
             })
 
-            local function UpdateSlider(input)
+            CreateInstance("UICorner", {
+                Parent = SliderHandle,
+                CornerRadius = UDim.new(0, 4)
+            })
+
+            local UpdateSlider = CreateSliderAnimations(SliderFill, SliderHandle)
+
+            local function UpdateSliderValue(input)
                 local pos = UDim2.new(math.clamp((input.Position.X - SliderBackground.AbsolutePosition.X) / SliderBackground.AbsoluteSize.X, 0, 1), 0, 1, 0)
-                SliderFill.Size = pos
-                
                 local value = math.floor(((pos.X.Scale * (config.Max - config.Min)) + config.Min) * 100) / 100
                 Slider.Value = value
                 SliderText.Text = config.Name .. ": " .. tostring(value)
-                
+                UpdateSlider(value, config.Max)
                 if config.Callback then
                     config.Callback(value)
                 end
@@ -459,13 +640,13 @@ function NebulaLib:CreateWindow(config)
             SliderBackground.InputBegan:Connect(function(input)
                 if input.UserInputType == Enum.UserInputType.MouseButton1 or
                    input.UserInputType == Enum.UserInputType.Touch then
-                    UpdateSlider(input)
+                    UpdateSliderValue(input)
                     local connection
                     connection = RunService.RenderStepped:Connect(function()
                         if input.UserInputState == Enum.UserInputState.End then
                             connection:Disconnect()
                         else
-                            UpdateSlider(input)
+                            UpdateSliderValue(input)
                         end
                     end)
                 end
@@ -658,6 +839,7 @@ function NebulaLib:CreateWindow(config)
             return TextInput
         end
 
+        table.insert(Window.Tabs, Tab)
         return Tab
     end
 
@@ -671,7 +853,7 @@ function NebulaLib:ShowNotification(config)
     local Notification = CreateInstance("Frame", {
         Parent = self.Windows[1].MainGui,
         BackgroundColor3 = self.Theme.Background,
-        Position = UDim2.new(1, -310, 1, -110),
+        Position = UDim2.new(1, -330, 0, -100),
         Size = UDim2.new(0, 300, 0, 100),
         ClipsDescendants = true
     })
@@ -706,11 +888,18 @@ function NebulaLib:ShowNotification(config)
         TextWrapped = true
     })
 
+    table.insert(NotificationQueue, {
+        GuiObject = Notification,
+        Duration = config.Time or 3
+    })
+    ShowNotification(NotificationQueue[#NotificationQueue])
+    --[[
     Tween(Notification, {Position = UDim2.new(1, -310, 1, -110)}, 0.5)
     task.delay(config.Time or 3, function()
         Tween(Notification, {Position = UDim2.new(1, 10, 1, -110)}, 0.5).Completed:Wait()
         Notification:Destroy()
     end)
+    ]]--
 end
 
 function NebulaLib:Init()
